@@ -1,0 +1,19 @@
+---
+
+# Change these variables!
+unifi_fqdn: ""
+unifi_config_dir: ""
+unifi_container_name: ""
+unifi_user: "911"
+unifi_group: "911"
+
+# will be copied to certbot_admin_email for LE cert
+unifi_admin_email: ""
+
+# These are generally not required to be changed
+le_cert_dir: "/etc/letsencrypt/live/{{ unifi_fqdn }}"
+certbot_create_if_missing: True
+certbot_create_standalone_stop_services: []
+certbot_certs:
+  - domains:
+    - "{{ unifi_fqdn }}"

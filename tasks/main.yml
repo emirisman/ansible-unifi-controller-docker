@@ -1,0 +1,76 @@
+---
+
+- name: Ensure that "{{ unifi_config_dir }}" exists
+  file:
+    path: "{{ unifi_config_dir }}"
+    state: directory
+    owner: "{{ unifi_user }}"
+    group: "{{ unifi_group }}"
+
+- name: Create unifi container
+  include_role:
+    name: container
+  vars:
+    container_name: "{{ unifi_container_name }}"
+    container_image: linuxserver/unifi-controller
+    container_state: started
+    container_volumes:
+      - "{{ unifi_config_dir }}:/config"
+    container_security_opts:
+      - apparmor:unconfined
+    container_ports:
+      - "3478:3478/udp"
+      - "10001:10001/udp"
+      - "8080:8080"
+      - "8081:8081"
+      - "8443:8443"
+      - "8843:8843"
+      - "8880:8880"
+      - "6789:6789"
+
+- name: Get certificate for unifi controller
+  include_role:
+    name: geerlingguy.certbot
+  vars:
+    certbot_admin_email: "{{ unifi_admin_email }}"
+    certbot_create_if_missing: True
+    certbot_create_standalone_stop_services: []
+    certbot_certs:
+      - domains:
+        - "{{ unifi_fqdn }}"
+
+- name: Convert certificate to PKCS#12 format
+  become: True
+  openssl_pkcs12:
+    action: export
+    force: True
+    friendly_name: unifi
+    path: /tmp/unifi-cert.p12
+    passphrase: temppass
+    privatekey_path: "{{ le_cert_dir }}/privkey.pem"
+    certificate_path: "{{ le_cert_dir }}/fullchain.pem"
+    state: present
+
+- name: Install JRE for keytool
+  become: True
+  package:
+    name: openjdk-11-jre-headless
+    state: present
+
+- name: Install certificates to unifi controller
+  become: True
+  command: "keytool -importkeystore -deststorepass aircontrolenterprise -destkeypass aircontrolenterprise -destkeystore {{ unifi_config_dir }}/data/keystore -srckeystore /tmp/unifi-cert.p12 -srcstoretype PKCS12 -srcstorepass temppass -alias unifi -noprompt"
+
+#- name: Install certificates to unifi controller
+#  java_cert:
+#    cert_alias: unifi
+#    pkcs12_alias: unifi
+#    pkcs12_path: /tmp/unifi-cert.p12
+#    pkcs12_password: temppass
+#    keystore_create: True
+#    keystore_pass: aircontrolenterprise
+#    keystore_path: "{{ unifi_config_dir }}/data/keystore"
+#    state: present
+
+- name: Restart {{ unifi_container_name }} to use certificates
+  command: "docker restart {{ unifi_container_name }}"
