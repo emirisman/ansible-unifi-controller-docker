@@ -7,18 +7,22 @@
     owner: "{{ unifi_user }}"
     group: "{{ unifi_group }}"
 
+- name: Pull linuxserver/unifi-controller image
+  docker_image:
+    name: linuxserver/unifi-controller
+    pull: True
+
 - name: Create unifi container
-  include_role:
-    name: container
-  vars:
-    container_name: "{{ unifi_container_name }}"
-    container_image: linuxserver/unifi-controller
-    container_state: started
-    container_volumes:
+  docker_container:
+    name: "{{ unifi_container_name }}"
+    image: linuxserver/unifi-controller
+    restart_policy: unless-stopped
+    state: started
+    volumes:
       - "{{ unifi_config_dir }}:/config"
-    container_security_opts:
+    security_opts:
       - apparmor:unconfined
-    container_ports:
+    ports:
       - "3478:3478/udp"
       - "10001:10001/udp"
       - "8080:8080"
